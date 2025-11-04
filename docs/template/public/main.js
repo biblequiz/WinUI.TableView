@@ -3,12 +3,12 @@ export default {
   iconLinks: [
     {
       icon: 'github',
-      href: 'https://github.com/w-ahmad/WinUI.TableView',
+      href: 'https://github.com/biblequiz/WinUI.TableView',
       title: 'GitHub'
     },
     {
       icon: 'box', 
-      href: 'https://www.nuget.org/packages/WinUI.TableView/',
+      href: 'https://www.nuget.org/packages/biblequiz.WinUI.TableView/',
       title: 'NuGet Package'
     }
   ]
