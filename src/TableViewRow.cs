@@ -53,12 +53,23 @@ public partial class TableViewRow : ListViewItem
 #if WINDOWS
         ContextRequested += OnContextRequested;
         RegisterPropertyChangedCallback(IsSelectedProperty, delegate { OnIsSelectedChanged(); });
+#else
+        RegisterPropertyChangedCallback(IsSelectedProperty, delegate { OnIsSelectedChanged(); });
 #endif
         RegisterPropertyChangedCallback(ForegroundProperty, delegate { OnForegroundChanged(); });
         RegisterPropertyChangedCallback(BackgroundProperty, delegate { OnBackgroundChanged(); });
     }
 
 #if !WINDOWS
+    /// <summary>
+    /// Handles the IsSelected property changed for non-Windows platforms.
+    /// </summary>
+    protected override void OnIsSelectedChanged()
+    {
+        base.OnIsSelectedChanged();
+        EnsureAlternateColors();
+    }
+
     /// <inheritdoc/>
     protected override void OnRightTapped(RightTappedRoutedEventArgs e)
     {
@@ -138,10 +149,10 @@ public partial class TableViewRow : ListViewItem
         else
         {
 #endif
-            foreach (var cell in Cells)
-            {
-                cell.RefreshElement();
-            }
+        foreach (var cell in Cells)
+        {
+            cell.RefreshElement();
+        }
 #if WINDOWS
         }
 #endif
@@ -559,11 +570,113 @@ public partial class TableViewRow : ListViewItem
     {
         if (TableView is null || RowPresenter is null) return;
 
-        RowPresenter.Background =
-            Index % 2 == 1 && TableView.AlternateRowBackground is not null ? TableView.AlternateRowBackground : _cellPresenterBackground;
+        // When selected, use TemplatedParent approach to get the actual brush from ListViewItemPresenter
+        if (IsSelected)
+        {
+            // Get the selected brushes directly from the item presenter's applied visual state
+            // This is more reliable than trying to lookup theme resources
+            var selectedBackground = GetValueFromVisualState("TableViewRowBackgroundSelected");
+            var selectedForeground = GetValueFromVisualState("TableViewRowForegroundSelected");
 
-        RowPresenter.Foreground =
-            Index % 2 == 1 && TableView.AlternateRowForeground is not null ? TableView.AlternateRowForeground : _cellPresenterForeground;
+            if (selectedBackground is Brush bgBrush)
+            {
+                RowPresenter.Background = bgBrush;
+            }
+            else if (TryGetThemeResource("TableViewRowBackgroundSelected", out Brush? themeBgBrush))
+            {
+                RowPresenter.Background = themeBgBrush;
+            }
+            else
+            {
+                RowPresenter.Background = Background;
+            }
+
+            if (selectedForeground is Brush fgBrush)
+            {
+                RowPresenter.Foreground = fgBrush;
+            }
+            else if (TryGetThemeResource("TableViewRowForegroundSelected", out Brush? themeFgBrush))
+            {
+                RowPresenter.Foreground = themeFgBrush;
+            }
+            else
+            {
+                RowPresenter.Foreground = Foreground;
+            }
+        }
+        else
+        {
+            RowPresenter.Background =
+                Index % 2 == 1 && TableView.AlternateRowBackground is not null ? TableView.AlternateRowBackground : _cellPresenterBackground;
+
+            RowPresenter.Foreground =
+                Index % 2 == 1 && TableView.AlternateRowForeground is not null ? TableView.AlternateRowForeground : _cellPresenterForeground;
+        }
+    }
+
+    /// <summary>
+    /// Gets a value from the current visual state by looking it up in resources.
+    /// </summary>
+    private object? GetValueFromVisualState(string resourceKey)
+    {
+        try
+        {
+            // Try to get the resource value using the control's resource lookup which respects theme
+            var resource = this.Resources[resourceKey];
+            return resource;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Helper method to get a resource from the current theme dictionary.
+    /// </summary>
+    private bool TryGetThemeResource<T>(string key, out T? value) where T : class
+    {
+        value = null;
+
+        try
+        {
+            // Use the indexer which properly resolves theme resources
+            // The TryGetValue method doesn't work for theme resources
+            if (Application.Current?.Resources != null)
+            {
+                try
+                {
+                    // Use indexer to get resource - this respects ThemeDictionaries
+                    var resource = Application.Current.Resources[key];
+                    if (resource is T typedValue)
+                    {
+                        value = typedValue;
+                        return true;
+                    }
+                }
+                catch (KeyNotFoundException)
+                {
+                    // Key not found, continue to fallback
+                }
+            }
+
+            // Fallback: try to get from control's own resources
+            if (Resources.ContainsKey(key))
+            {
+                var resource = Resources[key];
+                if (resource is T typedValue)
+                {
+                    value = typedValue;
+                    return true;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore all errors
+        }
+
+        return false;
     }
 
     internal void UpdateSelectCheckMarkOpacity()

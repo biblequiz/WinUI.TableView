@@ -3,7 +3,7 @@ export default {
   iconLinks: [
     {
       icon: 'github',
-      href: 'https://github.com/w-ahmad/WinUI.TableView',
+      href: 'https://github.com/biblequiz/WinUI.TableView',
       title: 'GitHub'
     },
     {
